@@ -1,38 +1,88 @@
-import datetime
+import datetime as dt
 
 
-def parse_iso8601_date(date: str) -> datetime.date:
+ORDINAL_TABLE = [0, 31, 59, 90, 120, 151, 181,
+                 212, 243, 273, 304, 334]
+
+
+def _is_leap_year(year: int) -> bool:
+    "Determine whether a year is a leap year"
+    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+
+
+def _get_date_from_ordinal(year: int, ordinal: int) -> dt.date:
+    """Get date from the day and year"""
+    day = ordinal
+    for i, x in enumerate(ORDINAL_TABLE):
+        if ordinal <= x:
+            break
+        month = i + 1
+        day = ordinal - x
+    if _is_leap_year(year) and month > 2:
+        day -= 1
+    return dt.date(year, month, day)
+
+
+def _parse_date(date: str) -> dt.date:
     """Parse ISO-8601 formatted date"""
     len_date = len(date)
 
-    #YYYY-MM-DD
     if len_date == 10:
-        return datetime.date(*map(int, date.split("-")))
-    elif len_date == 8:
-        #Week date
-        if "-" in date and "W" in date:
-            pass
-        #Ordinal date
-        elif "-" in date:
-            pass
-        #YYYYMMDD
-        else:
-            return datetime.date(*map(int, (date[:4], date[4:6], date[6:])))
-    elif len_date == 7:
-        #Truncated Week date
+        # YYYY-Www-D
         if "W" in date:
             pass
-        #Truncated Ordinal date
         else:
+            return dt.date(*map(int, date.split("-")))
+    elif len_date == 8:
+        # YYYY-DDD
+        if "-" in date:
+            year, ordinal = map(int, date.split("-"))
+            return _get_date_from_ordinal(year, ordinal)
+        # YYYYWwwD
+        elif "W" in date:
             pass
+        # YYYYMMDD
+        else:
+            return dt.date(*map(int, (date[:4], date[4:6], date[6:])))
+    # YYYYDDD
+    elif len_date == 7:
+        year, ordinal = int(date[:4]), int(date[4:])
+        return _get_date_from_ordinal(year, ordinal)
     else:
         raise ValueError("Invalid ISO-8601 format for date")
 
 
-def parse_iso8601_time(time: str) -> datetime.time:
+def _parse_time(time: str) -> dt.time:
     """Parse ISO-8601 formatted time"""
-    #Get the microsecond
-    if len(time) in (10, 12, 15):
+
+    if "Z" in time:
+        time = time.strip("Z")
+        tzinfo = dt.timezone.utc
+    elif "+" in time or "-" in time:
+        for sign in ("+", "-"):
+            if sign in time:
+                time, utc = time.split(sign)
+                if ":" in utc:
+                    hours = int(sign + utc[:2])
+                    minutes = int(sign + utc[3:])
+                elif len(utc) == 4:
+                    hours = int(sign + utc[:2])
+                    minutes = int(sign + utc[2:])
+                else:
+                    hours = int(sign + utc)
+                    minutes = 0
+                # As far as I can tell current min max timezones are -12 and +14 but some historical
+                # timezones were larger so the limit is -16 to 16
+                if hours < -16 or hours > 16:
+                    raise ValueError("Invalid hour value for utcoffset")
+                elif minutes < -59 or minutes > 59:
+                    raise ValueError("Invalid minutes value for utcoffset")
+                tzinfo = dt.timezone(dt.timedelta(hours=hours, minutes=minutes))
+    else:
+        tzinfo = None
+
+    # Get the microsecond
+    if len(time) in (10, 12, 15) and ("." in time or "," in time):
         if "." in time:
             time, second_factor = time.split(".")
         elif "," in time:
@@ -47,48 +97,34 @@ def parse_iso8601_time(time: str) -> datetime.time:
     len_time = len(time)
 
     if ":" in time:
-        #hh:mm:ss
+        # hh:mm:ss
         if len_time == 8:
-            return datetime.time(*map(int, time.split(":")), microsecond)
-        #hh:mm
+            return dt.time(*map(int, time.split(":")), microsecond, tzinfo)
+        # hh:mm
         elif len_time == 5:
-            return datetime.time(*map(int, time.split(":")))
-    #hhmmss
+            return dt.time(*map(int, time.split(":")), tzinfo=tzinfo)
+        else:
+            raise ValueError("Invalid ISO-8601 format for time")
+    # hhmmss
     elif len_time == 6:
-        return datetime.time(*map(int, (time[:2], time[2:4], time[4:])), microsecond)
-    #hhmm
+        return dt.time(*map(int, (time[:2], time[2:4], time[4:])), microsecond, tzinfo)
+    # hhmm
     elif len_time == 4:
-        return datetime.time(*map(int, *(time[:2], time[2:])))
-    #hh
+        return dt.time(*map(int, *(time[:2], time[2:])), tzinfo=tzinfo)
+    # hh
     elif len_time == 2:
-        return datetime.time(int(time))
+        return dt.time(int(time), tzinfo=tzinfo)
     else:
         raise ValueError("Invalid ISO-8601 format for time")
 
 
-def parse_iso8601(timestamp: str) -> datetime.datetime:
+def parse_iso8601(timestamp: str) -> dt.datetime:
     """Parse an ISO-8601 formatted time stamp."""
-
     if "T" in timestamp:
         date, time = timestamp.split("T")
-        time = parse_iso8601_time(time)
+        time = _parse_time(time)
     else:
         date = timestamp
-        time = datetime.time.min
-
-    date = parse_iso8601_date(date)
-
-    print(datetime.datetime.combine(date, time))
-    return datetime.datetime.combine(date, time)
-
-
-if __name__ == "__main__":
-    assert parse_iso8601("20170505") == datetime.datetime(2017, 5, 5, 0, 0), "YYYYMMDD"
-    assert parse_iso8601("2019-12-16") == datetime.datetime(2019, 12, 16, 0, 0), "YYYY-MM-DD"
-    assert parse_iso8601("2017-01-08T12") == datetime.datetime(2017, 1, 8, 12, 0), "YYYY-MM-DDThh"
-    assert parse_iso8601("2017-01-08T12") == datetime.datetime(2017, 1, 8, 12, 0), "YYYY-MM-DDThh"
-    assert parse_iso8601("2010-02-18T16:23:48,444") == datetime.datetime(2010, 2, 18, 16, 23, 48, 444000)
-    try:
-        parse_iso8601("2000-10-16T09:23:61")
-    except ValueError as e:
-        print(e)
+        time = dt.time.min
+    date = _parse_date(date)
+    return dt.datetime.combine(date, time)
