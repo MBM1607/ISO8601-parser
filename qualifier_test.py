@@ -8,6 +8,8 @@ from qualifier import parse_iso8601
 def test_dates():
     assert parse_iso8601("20170505") == dt.datetime(2017, 5, 5, 0, 0), "YYYYMMDD"
     assert parse_iso8601("2019-12-16") == dt.datetime(2019, 12, 16, 0, 0), "YYYY-MM-DD"
+    assert parse_iso8601("0001-01-01") == dt.datetime(1, 1, 1, 0, 0), "First day of the Common Era"
+    assert parse_iso8601("9999-12-31") == dt.datetime(9999, 12, 31, 0, 0), "Last day"
 
 
 def test_datetimes():
@@ -37,7 +39,8 @@ def test_week_dates():
     assert parse_iso8601("2019-W52-2") == dt.datetime(2019, 12, 24), "YYYY-Www-D"
     assert parse_iso8601("2019W521") == dt.datetime(2019, 12, 23), "YYYYWwwD"
     assert parse_iso8601("2009-W01-1") == dt.datetime(2008, 12, 29), "YYYY-Www-D Week 1 edge case"
-    assert parse_iso8601("2009W537") == dt.datetime(2010, 1, 3), "YYYYWwwD Week 53 edge case"
+    assert parse_iso8601("2009W537") == dt.datetime(2010, 1, 3), "YYYYWwwD Week 53 Sun"
+    assert parse_iso8601("2004-W53-6") == dt.datetime(2005, 1, 1), "YYYY-Www-D Week 53 Sat"
 
 
 def test_invalids():
@@ -47,6 +50,12 @@ def test_invalids():
     tst_value_errors("2000-10-16T09:23:06.666-00:60", "Invalid minutes value for utcoffset")
     tst_value_errors("2001-13-16T09:23:06.666-00:30", "month must be in 1..12")
     tst_value_errors("2001-12-32T09:23:06.666-00:30", "day is out of range for month")
+    tst_value_errors("2019-W52-8", "Invalid weekday")
+    tst_value_errors("1909-W01-0", "Invalid weekday")
+    tst_value_errors("2019-W54-7", "Invalid week")
+    tst_value_errors("2019-W00-7", "Invalid week")
+    tst_value_errors("2001-366", "Invalid ordinal day")
+    tst_value_errors("2004-000", "Invalid ordinal day")
     tst_value_errors("2001-12-31T09:23:06.63-00:30", "Invalid ISO-8601 format for time")
     tst_value_errors("2001-07-16T09.12:23:06-00:30", "Invalid ISO-8601 format for time")
     tst_value_errors("2001-07-16T09:23.23:06-00:30", "Invalid ISO-8601 format for time")

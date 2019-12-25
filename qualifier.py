@@ -1,17 +1,28 @@
 import datetime as dt
+from functools import lru_cache
 
 
 ORDINAL_TABLE = [0, 31, 59, 90, 120, 151, 181,
                  212, 243, 273, 304, 334]
 
 
+@lru_cache(maxsize=8)
 def _is_leap_year(year: int) -> bool:
-    "Determine whether a year is a leap year"
+    """Determine whether a year is a leap year"""
     return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
 
 
+@lru_cache(maxsize=8)
+def _days_in_year(year: int) -> int:
+    """Get the number of days in a year"""
+    return 365 + _is_leap_year(year)
+
+
 def _get_date_from_ordinal(year: int, ordinal: int) -> dt.date:
-    """Get date from the day and year"""
+    """Get date from the ordinal day and year"""
+    if ordinal < 1 or ordinal > _days_in_year(year):
+        raise ValueError("Invalid ordinal day")
+
     day = ordinal
     for i, x in enumerate(ORDINAL_TABLE):
         if ordinal <= x:
@@ -23,6 +34,23 @@ def _get_date_from_ordinal(year: int, ordinal: int) -> dt.date:
     return dt.date(year, month, day)
 
 
+def _get_date_from_week_date(year: int, week: int, weekday: int) -> dt.date:
+    """Get date from week number and weekday"""
+    if weekday < 1 or weekday > 7:
+        raise ValueError("Invalid weekday")
+    elif week < 1 or week > 53:
+        raise ValueError("Invalid week")
+
+    ordinal = week * 7 + weekday - (dt.date(year, 1, 4).weekday() + 4)
+    if ordinal < 1:
+        year -= 1
+        ordinal += _days_in_year(year)
+    elif ordinal > _days_in_year(year):
+        ordinal -= _days_in_year(year)
+        year += 1
+    return _get_date_from_ordinal(year, ordinal)
+
+
 def _parse_date(date: str) -> dt.date:
     """Parse ISO-8601 formatted date"""
     len_date = len(date)
@@ -30,24 +58,22 @@ def _parse_date(date: str) -> dt.date:
     if len_date == 10:
         # YYYY-Www-D
         if "W" in date:
-            pass
+            return _get_date_from_week_date(int(date[:4]), int(date[6:8]), int(date[9]))
         else:
             return dt.date(*map(int, date.split("-")))
     elif len_date == 8:
         # YYYY-DDD
         if "-" in date:
-            year, ordinal = map(int, date.split("-"))
-            return _get_date_from_ordinal(year, ordinal)
+            return _get_date_from_ordinal(*map(int, date.split("-")))
         # YYYYWwwD
         elif "W" in date:
-            pass
+            return _get_date_from_week_date(int(date[:4]), int(date[5:7]), int(date[7]))
         # YYYYMMDD
         else:
             return dt.date(*map(int, (date[:4], date[4:6], date[6:])))
     # YYYYDDD
     elif len_date == 7:
-        year, ordinal = int(date[:4]), int(date[4:])
-        return _get_date_from_ordinal(year, ordinal)
+        return _get_date_from_ordinal(int(date[:4]), int(date[4:]))
     else:
         raise ValueError("Invalid ISO-8601 format for date")
 
@@ -127,4 +153,5 @@ def parse_iso8601(timestamp: str) -> dt.datetime:
         date = timestamp
         time = dt.time.min
     date = _parse_date(date)
+
     return dt.datetime.combine(date, time)
