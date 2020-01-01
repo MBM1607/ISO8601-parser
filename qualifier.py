@@ -18,6 +18,12 @@ def _days_in_year(year: int) -> int:
     return 365 + _is_leap_year(year)
 
 
+def _validate_format(date: str, time: str) -> None:
+    """Raise a value error if date and time are not both in the same format"""
+    if "-" in date and ":" not in time and len(time) != 2 or "-" not in date and ":" in time:
+        raise ValueError("Cannot mix extended and basic format")
+
+
 def _get_date_from_ordinal(year: int, ordinal: int) -> dt.date:
     """Get date from the ordinal day and year"""
     if ordinal < 1 or ordinal > _days_in_year(year):
@@ -148,6 +154,7 @@ def parse_iso8601(timestamp: str) -> dt.datetime:
     """Parse an ISO-8601 formatted time stamp."""
     if "T" in timestamp:
         date, time = timestamp.split("T")
+        _validate_format(date, time)
         time = _parse_time(time)
     else:
         date = timestamp

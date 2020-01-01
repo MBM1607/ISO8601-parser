@@ -59,6 +59,8 @@ def test_invalids():
     tst_value_errors("2001-12-31T09:23:06.63-00:30", "Invalid ISO-8601 format for time")
     tst_value_errors("2001-07-16T09.12:23:06-00:30", "Invalid ISO-8601 format for time")
     tst_value_errors("2001-07-16T09:23.23:06-00:30", "Invalid ISO-8601 format for time")
+    tst_value_errors("20010716T09:24:25Z", "Cannot mix extended and basic format")
+    tst_value_errors("1999-04-05T092459", "Cannot mix extended and basic format")
 
 
 def tst_value_errors(value, error):
