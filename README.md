@@ -6,7 +6,7 @@ I wrote this parser for python-discord winter code jam 6 qualifier. The parses a
 The only formats excluded from the parser are those that couldn't be converted to a direct equivalent in datetime.datetime.
 like the YYYY-WW format or the YYYY-MM format.
 
-##Usage
+## Usage
 ```python
 from qualifier import parse_iso8601
 
