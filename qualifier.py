@@ -1,5 +1,6 @@
 import datetime as dt
 from functools import lru_cache
+from typing import Tuple
 
 
 ORDINAL_TABLE = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
@@ -83,13 +84,11 @@ def _parse_date(date: str) -> dt.date:
 		raise ValueError("Invalid ISO-8601 format for date")
 
 
-def _parse_time(time: str) -> dt.time:
-	"""Parse ISO-8601 formatted time"""
-
+def _parse_timezone(time: str) -> Tuple[str, str]:
+	"""Parse the timezone and return the seperated time and timezone"""
 	if "Z" in time:
-		time = time.strip("Z")
-		tzinfo = dt.timezone.utc
-	elif "+" in time or "-" in time:
+		return time.strip("Z"), dt.timezone.utc
+	else:
 		for sign in ("+", "-"):
 			if sign in time:
 				time, utc = time.split(sign)
@@ -108,11 +107,21 @@ def _parse_time(time: str) -> dt.time:
 					raise ValueError("Invalid hour value for utcoffset")
 				elif minutes < -59 or minutes > 59:
 					raise ValueError("Invalid minutes value for utcoffset")
-				tzinfo = dt.timezone(dt.timedelta(hours=hours, minutes=minutes))
-	else:
-		tzinfo = None
+				return time, dt.timezone(dt.timedelta(hours=hours, minutes=minutes))
 
-	# Get the microsecond
+	return time, None
+
+
+def _parse_time(time: str) -> dt.time:
+	"""Parse ISO-8601 formatted time"""
+
+	time, tzinfo = _parse_timezone(time)
+
+	# Get the fractions
+	if "." in time:
+		t, fraction = time.split(".")
+		print(t, fraction)
+
 	if len(time) in (10, 12, 15) and ("." in time or "," in time):
 		if "." in time:
 			time, second_factor = time.split(".")
@@ -141,7 +150,7 @@ def _parse_time(time: str) -> dt.time:
 		return dt.time(*map(int, (time[:2], time[2:4], time[4:])), microsecond, tzinfo)
 	# hhmm
 	elif len_time == 4:
-		return dt.time(*map(int, *(time[:2], time[2:])), tzinfo=tzinfo)
+		return dt.time(*map(int, (time[:2], time[2:])), tzinfo=tzinfo)
 	# hh
 	elif len_time == 2:
 		return dt.time(int(time), tzinfo=tzinfo)
@@ -153,7 +162,6 @@ def parse_iso8601(timestamp: str) -> dt.datetime:
 	"""Parse an ISO-8601 formatted time stamp."""
 	if "T" in timestamp:
 		date, time = timestamp.split("T")
-		_validate_format(date, time)
 		time = _parse_time(time)
 	else:
 		date = timestamp
