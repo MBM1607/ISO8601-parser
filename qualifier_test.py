@@ -32,9 +32,12 @@ def test_fractional_seconds():
 
 
 def test_fractional_minutes():
+	assert parse_iso8601('19050816T1915.000001') == dt.datetime(1905, 8, 16, 19, 15, 0, 60), "YYYYMMDDThhmm.mmmmmm"
+	assert parse_iso8601('17151008T0002.125') == dt.datetime(1715, 10, 8, 0, 2, 7, 500000), "YYYYMMDD-Thhmm.mmm"
+	assert parse_iso8601('19050816T1915.078125') == dt.datetime(1905, 8, 16, 19, 15, 4, 687500), "YYYYMMDDTThhmm.mmmmmm"
 	assert parse_iso8601('1905-08-16T19:15.000001') == dt.datetime(1905, 8, 16, 19, 15, 0, 60), "YYYY-MM-DDThh:mm.mmmmmm"
 	assert parse_iso8601('1715-10-08T00:02.125') == dt.datetime(1715, 10, 8, 0, 2, 7, 500000), "YYYY-MM-DD-Thh:mm.mmm"
-	assert parse_iso8601('1905-08-16T19:15.078125') == dt.datetime(1905, 8, 6, 19, 15, 4, 687500), "YYYY-MM-DDTThh:mm.mmmmmm"
+	assert parse_iso8601('1905-08-16T19:15.078125') == dt.datetime(1905, 8, 16, 19, 15, 4, 687500), "YYYY-MM-DDTThh:mm.mmmmmm"
 
 
 def test_fractional_hours():
@@ -80,9 +83,8 @@ def test_invalids():
 	tst_value_errors("2019-W00-7", "Invalid week")
 	tst_value_errors("2001-366", "Invalid ordinal day")
 	tst_value_errors("2004-000", "Invalid ordinal day")
-	tst_value_errors("2001-12-31T09:23:06.63-00:30", "Invalid ISO-8601 format for time")
-	tst_value_errors("2001-07-16T09.12:23:06-00:30", "Invalid ISO-8601 format for time")
-	tst_value_errors("2001-07-16T09:23.23:06-00:30", "Invalid ISO-8601 format for time")
+	tst_value_errors("2001-07-16T09.12:23:06-00:30", "Invalid fractional value for time")
+	tst_value_errors("2001-07-16T09:23.23:06-00:30", "Invalid fractional value for time")
 	#tst_value_errors("20010716T09:24:25Z", "Cannot mix extended and basic format")
 	#tst_value_errors("1999-04-05T092459", "Cannot mix extended and basic format")
 

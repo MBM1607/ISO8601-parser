@@ -112,48 +112,80 @@ def _parse_timezone(time: str) -> Tuple[str, str]:
 	return time, None
 
 
+def _solve_fractional_minutes(frac_min: float) -> Tuple[int, int]:
+	"""Extract seconds and microseconds from the fractional minutes"""
+	frac_min *= 60
+	if frac_min.is_integer():
+		return int(frac_min), 0
+	else:
+		seconds, microseconds = divmod(frac_min, 1)
+		return int(seconds), round(microseconds * 1000000)
+
+
+def _solve_fractional_hours(frac_hour: float) -> Tuple[int, int, int]:
+	frac_hour *= 60
+	if frac_hour.is_integer():
+		return int(frac_hour), 0, 0
+	else:
+		minutes, frac_min = divmod(frac_hour, 1)
+		seconds, microseconds = _solve_fractional_minutes(frac_min)
+		return int(minutes), seconds, microseconds
+
+
 def _parse_time(time: str) -> dt.time:
 	"""Parse ISO-8601 formatted time"""
 
 	time, tzinfo = _parse_timezone(time)
+	minutes, seconds, microseconds, fraction = 0, 0, 0, None
 
 	# Get the fractions
-	if "." in time:
-		t, fraction = time.split(".")
-		print(t, fraction)
-
-	if len(time) in (10, 12, 15) and ("." in time or "," in time):
-		if "." in time:
-			time, second_factor = time.split(".")
-		elif "," in time:
-			time, second_factor = time.split(",")
-		if len(second_factor) == 3:
-			microsecond = int(second_factor) * 1000
+	try:
+		for dot in (".", ","):
+			if dot in time:
+				time, fraction = time.split(dot)
+				len_time = len(time)
+				fraction = float("." + fraction)
+				break
 		else:
-			microsecond = int(second_factor)
-	else:
-		microsecond = 0
+			len_time = len(time)
 
-	len_time = len(time)
+	except ValueError:
+		raise ValueError("Invalid fractional value for time")
 
 	if ":" in time:
 		# hh:mm:ss
 		if len_time == 8:
-			return dt.time(*map(int, time.split(":")), microsecond, tzinfo)
+			if fraction:
+				microseconds = round(fraction * 1000000)
+			return dt.time(*map(int, time.split(":")), microseconds, tzinfo=tzinfo)
+
 		# hh:mm
 		elif len_time == 5:
-			return dt.time(*map(int, time.split(":")), tzinfo=tzinfo)
+			if fraction:
+				seconds, microseconds = _solve_fractional_minutes(fraction)
+			return dt.time(*map(int, time.split(":")), seconds, microseconds, tzinfo=tzinfo)
+
 		else:
 			raise ValueError("Invalid ISO-8601 format for time")
+
 	# hhmmss
 	elif len_time == 6:
-		return dt.time(*map(int, (time[:2], time[2:4], time[4:])), microsecond, tzinfo)
+		if fraction:
+			microseconds = round(fraction * 1000000)
+		return dt.time(*map(int, (time[:2], time[2:4], time[4:])), microseconds, tzinfo=tzinfo)
+
 	# hhmm
 	elif len_time == 4:
-		return dt.time(*map(int, (time[:2], time[2:])), tzinfo=tzinfo)
+		if fraction:
+			seconds, microseconds = _solve_fractional_minutes(fraction)
+		return dt.time(*map(int, (time[:2], time[2:])), seconds, microseconds, tzinfo=tzinfo)
+
 	# hh
 	elif len_time == 2:
-		return dt.time(int(time), tzinfo=tzinfo)
+		if fraction:
+			minutes, seconds, microseconds = _solve_fractional_hours(fraction)
+		return dt.time(int(time), minutes, seconds, microseconds, tzinfo=tzinfo)
+
 	else:
 		raise ValueError("Invalid ISO-8601 format for time")
 
