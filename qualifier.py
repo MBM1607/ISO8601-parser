@@ -1,4 +1,5 @@
 import datetime as dt
+from math import modf
 from functools import lru_cache
 from typing import Tuple
 
@@ -118,7 +119,7 @@ def _solve_fractional_minutes(frac_min: float) -> Tuple[int, int]:
 	if frac_min.is_integer():
 		return int(frac_min), 0
 	else:
-		seconds, microseconds = divmod(frac_min, 1)
+		microseconds, seconds = modf(frac_min)
 		return int(seconds), round(microseconds * 1000000)
 
 
@@ -127,7 +128,7 @@ def _solve_fractional_hours(frac_hour: float) -> Tuple[int, int, int]:
 	if frac_hour.is_integer():
 		return int(frac_hour), 0, 0
 	else:
-		minutes, frac_min = divmod(frac_hour, 1)
+		frac_min, minutes = modf(frac_hour)
 		seconds, microseconds = _solve_fractional_minutes(frac_min)
 		return int(minutes), seconds, microseconds
 
